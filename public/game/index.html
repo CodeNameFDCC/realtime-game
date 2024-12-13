@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>1945 Multiplayer</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #2e2e2e;
+            font-family: Arial, sans-serif;
+        }
+
+        nav {
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            z-index: 1000;
+        }
+
+        nav ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        nav ul li {
+            display: inline;
+            margin-right: 20px;
+        }
+
+        nav ul li a {
+            color: white;
+            text-decoration: none;
+        }
+
+        canvas {
+            border: 1px solid #333;
+        }
+
+        .screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+
+        .screen h1 {
+            color: #ff0;
+            margin-bottom: 20px;
+        }
+
+        .screen button {
+            background: #ff0;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        #waitingScreen,
+        #gameOverScreen {
+            width: 300px;
+        }
+
+        #debugInfo {
+            position: fixed;
+            top: 100px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            z-index: 1000;
+        }
+
+        .player-stats {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav id="nav">
+        <ul>
+            <li><a href="../index.html">메인</a></li>
+            <li><a href="../game/index.html">게임</a></li>
+            <li><a href="../my-info/my-info.html">내 정보</a></li>
+            <li><a href="../logout/logout.html">로그아웃</a></li>
+        </ul>
+    </nav>
+    <div id="debugInfo">Game initializing...</div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <img src="./assets/items/0.png">
+
+    <div id="waitingScreen" class="screen">
+        <h1>1945 Multiplayer</h1>
+        <p>Enter your name:</p>
+        <input type="text" id="playerName" maxlength="10" value="Player">
+        <p>Press SPACE to join the game!</p>
+    </div>
+
+    <div id="gameOverScreen" class="screen" style="display: none;">
+        <h1>Game Over</h1>
+        <p>Your Score: <span id="finalScore">0</span></p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+
+    <div class="player-stats" id="playerStats"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const images = {};
+
+        async function loadImage(src) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = src;
+                img.onload = () => resolve(img);
+                img.onerror = (err) => reject(err);
+            });
+        }
+
+        // loadImages 함수 정의
+        async function loadImages() {
+            try {
+                images.player = await loadImage('/assets/ships/1.png'),
+                    images.otherPlayer = await loadImage('/assets/ships/1B.png'),
+                    images.enemy = await loadImage('/assets/ships/2.png'),
+                    images.boss = await loadImage('/assets/ships/3.png'),
+                    images.explosion = await loadImage('/assets/effects/0.png'),
+                    images.bullet = await loadImage('/assets/bullets/0.png'),
+                    images.enemyBullet = await loadImage('/assets/bullets/1.png'),
+                    images.powerup = await loadImage('/assets/items/1.png'),
+                    images.bomb = await loadImage('/assets/items/0.png'),
+                    images.background = await loadImage('/assets/backgrounds/0.jpg')
+                console.log("Images loaded", images);
+                return await images;
+            } catch (error) {
+                console.error("Error loading images:", error);
+            }
+
+        }
+
+        // loadImages 호출
+
+        loadImages();
+
+
+
+
+
+        // Debug logging function
+        function debug(message) {
+            const debugInfo = document.getElementById('debugInfo');
+            debugInfo.innerHTML += '<br>' + message;
+            console.log(message);
+        }
+
+        debug('Starting game initialization...');
+        //debug(images);
+
+        const socket = io();
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const waitingScreen = document.getElementById('waitingScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const playerStats = document.getElementById('playerStats');
+        let backgroundY = 0;
+        let player = null;
+        let gameState = {
+            players: [],
+            bullets: [],
+            enemies: [],
+            items: [],
+            boss: null
+        };
+
+        let currentGameState = 'waiting';
+
+        // Simple shapes instead of images
+        const shapes = {
+            drawPlayer: (x, y, isCurrentPlayer) => {
+                const width = 30;
+                const height = 30;
+                ctx.drawImage(isCurrentPlayer ? images.player : images.otherPlayer, x - 15, y, width, height);
+                // ctx.fillStyle = isCurrentPlayer ? '#00ff00' : '#0000ff';
+                // ctx.beginPath();
+                // ctx.moveTo(x, y - 20);
+                // ctx.lineTo(x - 15, y + 10);
+                // ctx.lineTo(x + 15, y + 10);
+                // ctx.closePath();
+                // ctx.fill();
+            },
+            drawEnemy: (x, y) => {
+                const width = 30;
+                const height = 30;
+                ctx.drawImage(images.enemy, x - 15, y - 15, width, height);
+                // ctx.fillStyle = '#ff0000';
+                // ctx.fillRect(x - 15, y - 15, 30, 30);
+            },
+            drawBullet: (x, y, isEnemy) => {
+                ctx.fillStyle = isEnemy ? '#ff0000' : '#ffff00';
+                ctx.beginPath();
+                ctx.arc(x, y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            drawItem: (x, y, type) => {
+                ctx.fillStyle = type === 'powerup' ? '#00ff00' : '#ff00ff';
+                ctx.beginPath();
+                ctx.arc(x, y, 10, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            drawExplosion: (x, y, frame) => {
+                const size = 30 - frame * 2;
+                ctx.fillStyle = `rgba(255, ${128 + frame * 16}, 0, ${1 - frame / 8})`;
+                ctx.beginPath();
+                ctx.arc(x, y, size, 0, Math.PI * 2);
+                ctx.fill();
+            },
+            drawBackground: (scrollY) => {
+                const width = 30;
+                const height = 30;
+                //ctx.drawImage(images.enemy,x - 15,y-15, width,height);
+                // ctx.drawImage(images.background,0,scrollY)
+                ctx.drawImage(images.background, 0, scrollY);
+                ctx.drawImage(images.background, 0, scrollY - canvas.height);
+            },
+        };
+
+        debug('Shapes initialized');
+
+        // Handle keyboard input
+        const keys = new Set();
+
+        document.addEventListener('keydown', (e) => {
+            keys.add(e.key);
+
+            if (e.key === ' ' && currentGameState === 'waiting' || currentGameState === 'waiting' && e.code === "space") {
+                const playerName = document.getElementById('playerName').value.trim() || 'Player';
+                socket.emit('joinGame', playerName);
+                debug('Join game attempt: ' + playerName);
+            }
+
+            if (e.key === 'b' && player) {
+                socket.emit('useBomb');
+                debug('Bomb used');
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys.delete(e.key);
+        });
+
+        // Socket event handlers
+        socket.on('connect', () => {
+            debug('Connected to server');
+        });
+
+        socket.on('gameState', (state) => {
+            gameState = state;
+            player = gameState.players.find(p => p.id === socket.id);
+            updatePlayerStats();
+        });
+
+        socket.on('explosion', (position) => {
+            debug('Explosion at: ' + position.x + ',' + position.y);
+            createExplosion(position.x, position.y);
+        });
+
+        socket.on('gameStateChange', (newState) => {
+            debug('Game state changed to: ' + newState);
+            currentGameState = newState;
+            updateScreens();
+
+            if (newState === 'gameOver' && player) {
+                document.getElementById('finalScore').textContent = player.score;
+            }
+        });
+
+        function updateScreens() {
+            waitingScreen.style.display = currentGameState === 'waiting' ? 'block' : 'none';
+            gameOverScreen.style.display = currentGameState === 'gameOver' ? 'block' : 'none';
+        }
+
+        function updatePlayerStats() {
+            if (!player) return;
+            playerStats.innerHTML = `
+                <div>Name: ${player.name}</div>
+                <div>Lives: ${player.lives}</div>
+                <div>Score: ${player.score}</div>
+                <div>Power: ${player.powerLevel}</div>
+                <div>Bombs: ${player.bombs}</div>
+            `;
+        }
+
+        const explosions = new Set();
+
+        function createExplosion(x, y) {
+            explosions.add({
+                x,
+                y,
+                frame: 0,
+                startTime: Date.now()
+            });
+        }
+
+        function gameLoop() {
+            ctx.fillStyle = '#000033';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+
+            if (currentGameState === 'playing') {
+                // Update player position
+                if (player && player.isAlive) {
+                    const speed = 5;
+                    if (keys.has('ArrowLeft')) player.x -= speed;
+                    if (keys.has('ArrowRight')) player.x += speed;
+                    if (keys.has('ArrowUp')) player.y -= speed;
+                    if (keys.has('ArrowDown')) player.y += speed;
+
+                    player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
+                    player.y = Math.max(20, Math.min(canvas.height - 20, player.y));
+
+                    socket.emit('playerMove', { x: player.x, y: player.y });
+
+                    if (keys.has(' ')) {
+                        socket.emit('playerShoot', { x: player.x, y: player.y });
+                    }
+                }
+
+                shapes.drawBackground(backgroundY);
+
+                backgroundY = (backgroundY + 2) % canvas.height;
+
+                // Draw game objects
+                gameState.items.forEach(item => {
+                    shapes.drawItem(item.x, item.y, item.type);
+                });
+
+                gameState.bullets.forEach(bullet => {
+                    shapes.drawBullet(bullet.x, bullet.y, bullet.type === 'enemy');
+                });
+
+                gameState.enemies.forEach(enemy => {
+                    shapes.drawEnemy(enemy.x, enemy.y);
+                });
+
+                gameState.players.forEach(p => {
+                    if (p.isAlive) {
+                        shapes.drawPlayer(p.x, p.y, p.id === socket.id);
+                    }
+                });
+            }
+
+            // Draw explosions
+            for (const explosion of explosions) {
+                if (explosion.frame < 8) {
+                    shapes.drawExplosion(explosion.x, explosion.y, explosion.frame);
+                    if (Date.now() - explosion.startTime > 50) {
+                        explosion.frame++;
+                        explosion.startTime = Date.now();
+                    }
+                } else {
+                    explosions.delete(explosion);
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.restartGame = function () {
+            debug('Attempting to restart game');
+            socket.emit('restartGame');
+        };
+
+        // Start game loop
+        debug('Starting game loop');
+        gameLoop();
+    </script>
+</body>
+
+</html>
