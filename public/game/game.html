@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>1945 Multiplay Game Page</title>
+    <link rel="stylesheet" href="./game.css">
+</head>
+
+<body>
+    <nav id="nav">
+        <ul>
+            <li><a href="../index.html">메인</a></li>
+            <li><a href="../game/index.html">게임</a></li>
+            <li><a href="../my-info/my-info.html">내 정보</a></li>
+            <li><a href="../logout/logout.html">로그아웃</a></li>
+        </ul>
+    </nav>
+    <div id="debugInfo">Game initializing...</div>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+    <div id="waitingScreen" class="screen">
+        <h1>1945 Multiplayer</h1>
+        <p>Press SPACE to join the game!</p>
+    </div>
+
+    <div id="gameOverScreen" class="screen" style="display: none;">
+        <h1>Game Over</h1>
+        <p>Your Score: <span id="finalScore">0</span></p>
+        <button onclick="restartGame()">Play Again</button>
+    </div>
+
+    <div class="player-stats" id="playerStats"></div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./game.js"></script>
+</body>
+
+</html>
