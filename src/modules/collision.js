@@ -1,3 +1,5 @@
+import { killEnemy } from "../managers/enemyManager.js";
+
 const ITEM_DROP_CHANCE = 0.1; // 1% 확률로 아이템 드랍
 
 
@@ -32,6 +34,7 @@ export function handleCollisions(players, enemies, bullets, items, io) {
 function checkPlayerEnemyCollisions(player, enemies, items, io) {
     for (const enemy of enemies) {
         if (checkCollision(player, enemy)) {
+            killEnemy(player.id);
             player.lives--;
             player.isAlive = player.lives > 0;
             enemies.delete(enemy);
@@ -84,6 +87,7 @@ function checkBulletEnemyCollisions(players, bullets, enemies, items, io) {
                         const player = players.get(bullet.playerId);
                         if (player) {
                             player.score += 100;
+                            killEnemy(player.id);
                         }
 
                         spawnItemOnEnemyDeath(enemy, items);

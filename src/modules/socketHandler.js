@@ -1,6 +1,6 @@
 import { handleCollisions, spawnItemOnEnemyDeath } from './collision.js';
 import { updateBullets, spawnEnemies, updateEnemies, updateItems } from '../core/gameLoop.js';
-
+import { initEnemy } from '../managers/enemyManager.js';
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
@@ -23,6 +23,7 @@ export function initializeSocketHandlers(io) {
     io.on('connection', (socket) => {
         console.log('Player connected:', socket.id);
 
+
         socket.on('joinGame', (playerName) => {
             if (gameState === gameStates.WAITING) {
                 gameState = gameStates.PLAYING;
@@ -41,6 +42,7 @@ export function initializeSocketHandlers(io) {
                 width: 30,
                 height: 30
             });
+            initEnemy(socket.id);
 
             io.emit('updatePlayers', Array.from(players.values()));
             io.emit('gameStateChange', gameState);
