@@ -142,9 +142,14 @@ socket.on('connect', () => {
 });
 
 socket.on('gameState', (state) => {
+    console.log('Game state received:', gameState);
     gameState = state;
     player = gameState.players.find(p => p.id === socket.id);
     updatePlayerStats();
+});
+
+socket.on('newBullet', (bullet) => {
+    renderBullet(bullet); // 총알을 화면에 표시하는 함수 호출
 });
 
 socket.on('explosion', (position) => {
@@ -153,8 +158,8 @@ socket.on('explosion', (position) => {
 });
 
 socket.on('gameStateChange', (newState) => {
-    debug('Game state changed to: ' + newState);
     currentGameState = newState;
+    console.log('Game state updated on client:', newState);
     updateScreens();
 
     if (newState === 'gameOver' && player) {
@@ -189,10 +194,11 @@ function createExplosion(x, y) {
     });
 }
 
+
+
 function gameLoop() {
     ctx.fillStyle = '#000033';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
 
     if (currentGameState === 'playing') {
         // Update player position

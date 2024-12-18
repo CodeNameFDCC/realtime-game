@@ -1,8 +1,16 @@
+import express from "express";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+dotenv.config();
+const router = express.Router();
 
 
 //#region 사이트에서 접근하는 내용
 
-app.post("/register", (req, res) => {
+let users = []; // 사용자 저장소
+let refreshTokens = {}; // 사용자별 refresh token 저장소
+
+router.post("/register", (req, res) => {
     const { userName: userName, password } = req.body;
     console.log(userName, password);
     const userExists = users.find((user) => user.userName === userName);
@@ -17,7 +25,7 @@ app.post("/register", (req, res) => {
 });
 
 // 로그인
-app.post("/login", (req, res) => {
+router.post("/login", (req, res) => {
     const { userName: userName, password } = req.body;
     const user = users.find(
         (u) => u.userName === userName && u.password === password
@@ -54,7 +62,7 @@ app.post("/login", (req, res) => {
 });
 
 // 액세스 토큰 갱신
-app.post("/token", (req, res) => {
+router.post("/token", (req, res) => {
     const { token } = req.body;
     const username = Object.keys(refreshTokens).find(
         (user) => refreshTokens[user] === token
@@ -75,7 +83,7 @@ app.post("/token", (req, res) => {
 });
 
 // 로그아웃
-app.delete("/logout", (req, res) => {
+router.delete("/logout", (req, res) => {
     const { token } = req.body;
 
     const username = Object.keys(refreshTokens).find(
@@ -104,8 +112,11 @@ const authenticateToken = (req, res, next) => {
 };
 
 // 보호된 사용자 정보 API
-app.get("/user", authenticateToken, (req, res) => {
+router.get("/user", authenticateToken, (req, res) => {
     res.json({ username: req.user.username });
 });
 
 //#endregion
+
+
+export default router;
