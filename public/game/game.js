@@ -83,10 +83,12 @@ const shapes = {
         // ctx.fillRect(x - 15, y - 15, 30, 30);
     },
     drawBullet: (x, y, isEnemy) => {
-        ctx.fillStyle = isEnemy ? '#ff0000' : '#ffff00';
-        ctx.beginPath();
-        ctx.arc(x, y, 3, 0, Math.PI * 2);
-        ctx.fill();
+        const bulletImage = (isEnemy) ? images.enemyBullet : images.bullet;
+        ctx.drawImage(bulletImage, x - 15, y - 15, 30, 30);
+        // ctx.fillStyle = isEnemy ? '#ff0000' : '#ffff00';
+        // ctx.beginPath();
+        // ctx.arc(x, y, 3, 0, Math.PI * 2);
+        // ctx.fill();
     },
     drawItem: (x, y, type) => {
         ctx.fillStyle = type === 'powerup' ? '#00ff00' : '#ff00ff';
@@ -165,6 +167,10 @@ socket.on('gameStateChange', (newState) => {
     if (newState === 'gameOver' && player) {
         document.getElementById('finalScore').textContent = player.score;
     }
+});
+socket.on('gameRestarted', (data) => {
+    console.log(data.message);
+    socket.emit('joinGame', playerName);
 });
 
 function updateScreens() {

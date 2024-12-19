@@ -1,6 +1,9 @@
 import { handleCollisions, spawnItemOnEnemyDeath } from './collision.js';
 import { updateBullets, spawnEnemies, updateEnemies, updateItems } from '../core/gameLoop.js';
 import { initEnemy } from '../managers/enemyManager.js';
+import { addScore, getStage, startStageUpdate, stopStageUpdate } from '../managers/stageManager.js';
+import { updateScore, addPlayer } from '../managers/socreManager.js';
+import players from '../managers/playerManager.js';
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
 
@@ -11,7 +14,7 @@ export const gameStates = {
 };
 
 let gameState = gameStates.WAITING;
-const players = new Map();
+
 const bullets = new Set();
 const enemies = new Set();
 const items = new Set();
@@ -22,6 +25,10 @@ let lastShootTime = {};
 export function initializeSocketHandlers(io) {
     io.on('connection', (socket) => {
         console.log('Player connected:', socket.id);
+
+        if (gameState === 'waiting') {
+            startStageUpdate();
+        }
 
 
         socket.on('joinGame', (playerName) => {
@@ -42,6 +49,7 @@ export function initializeSocketHandlers(io) {
                 width: 30,
                 height: 30
             });
+            addPlayer(socket.id, playerName);
             initEnemy(socket.id);
 
             io.emit('updatePlayers', Array.from(players.values()));
@@ -84,6 +92,10 @@ export function initializeSocketHandlers(io) {
                 bullets.clear();
 
                 for (const enemy of enemies) {
+                    // todo : 점수 증가
+                    const currentStage = getStage();
+                    const currentAddScore = addScore(currentStage);
+                    updateScore(socket.id, currentStage, currentStage);
                     enemy.health = 0;
                     spawnItemOnEnemyDeath(enemy, items);
                     enemies.delete(enemy);
@@ -104,6 +116,8 @@ export function initializeSocketHandlers(io) {
         });
 
         socket.on('restartGame', () => {
+            stopStageUpdate();
+
             const player = players.get(socket.id);
             if (player) {
                 player.lives = 3;
@@ -121,6 +135,7 @@ export function initializeSocketHandlers(io) {
                     io.emit('gameStateChange', gameState);
                 }
             }
+            startStageUpdate();
         });
 
         socket.on('disconnect', () => {
@@ -129,6 +144,7 @@ export function initializeSocketHandlers(io) {
 
             if (players.size === 0) {
                 gameState = gameStates.WAITING;
+                stopStageUpdate();
                 io.emit('gameStateChange', gameState);
             }
         });

@@ -1,4 +1,7 @@
 import { killEnemy } from "../managers/enemyManager.js";
+import { addScore, getStage } from "../managers/stageManager.js";
+import { updateScore } from "../managers/socreManager.js";
+import { getItemRate } from "../managers/itemManager.js";
 
 const ITEM_DROP_CHANCE = 0.1; // 1% 확률로 아이템 드랍
 
@@ -86,10 +89,13 @@ function checkBulletEnemyCollisions(players, bullets, enemies, items, io) {
                     if (enemy.health <= 0) {
                         const player = players.get(bullet.playerId);
                         if (player) {
-                            player.score += 100;
+                            const currentStage = getStage();
+                            let stageScore = addScore(currentStage);
+                            updateScore(player.id, currentStage, stageScore);
+
+                            player.score += stageScore;
                             killEnemy(player.id);
                         }
-
                         spawnItemOnEnemyDeath(enemy, items);
                         enemies.delete(enemy);
                         io.emit('explosion', { x: enemy.x, y: enemy.y, duration: 100 });
@@ -102,7 +108,7 @@ function checkBulletEnemyCollisions(players, bullets, enemies, items, io) {
 }
 
 export function spawnItemOnEnemyDeath(enemy, items) {
-    if (Math.random() < ITEM_DROP_CHANCE) {
+    if (Math.random() < getItemRate(getStage())) {
         items.add({
             id: Date.now(),
             x: enemy.x,

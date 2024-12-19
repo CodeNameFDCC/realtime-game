@@ -86,4 +86,6 @@ app.get("/user", authenticateToken, (req, res) => {
     res.json({ username: req.user.username });
 });
 
+
+
 export default app; // app 객체를 내보냄
